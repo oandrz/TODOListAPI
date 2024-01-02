@@ -65,5 +65,33 @@ def delete_task(task_id):
     return response, 200
 
 
+@app.route('/mark-done/<task_id>', methods=['PATCH'])
+def mark_task_done(task_id):
+    task = db.session.execute(db.select(Task).where(Task.id == task_id)).scalar_one_or_none()
+
+    if task is None:
+        return jsonify(status_code=404, error={"message": "Task Not Found"}), 404
+
+    task.is_done = True
+    db.session.commit()
+
+    response = jsonify(status_code=200, response={"message": "Successfully Update Task"})
+    return response, 200
+
+
+@app.route('/edit-task/<task_id>', methods=['PUT'])
+def update_task(task_id):
+    task = db.session.execute(db.select(Task).where(Task.id == task_id)).scalar_one_or_none()
+
+    if task is None:
+        return jsonify(status_code=404, error={"message": "Task Not Found"}), 404
+
+    task.title = request.form["task"]
+    db.session.commit()
+
+    response = jsonify(status_code=200, response={"message": "Successfully Update Task"})
+    return response, 200
+
+
 if __name__ == "__main__":
     app.run(debug=True)
