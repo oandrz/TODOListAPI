@@ -3,26 +3,32 @@ import os
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
-from flask_login import UserMixin, login_user, LoginManager, login_required, current_user, logout_user
+from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, JWTManager, get_jwt
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv("SECRET_KEY", "just secret")
-
+app.config["JWT_SECRET_KEY"] = os.getenv("SECRET_KEY", "just secret")
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv("POSTGRE", 'sqlite:///tasks.db')
+
+token_blacklist = set()
+
 db = SQLAlchemy()
 db.init_app(app)
 
-# Login Manager
-login_manager = LoginManager()
-login_manager.init_app(app)
+jwt = JWTManager(app)
 
-@login_manager.user_loader
-def load_user(user_id):
-    return db.session.execute(db.select(User).where(User.id == user_id)).scalar_one_or_none()
-
-@login_manager.unauthorized_handler
-def unauthorized():
+@jwt.unauthorized_loader
+def unauthorized(callback):
     return jsonify(status_code=404, response={"message": "User is unauthorized"}), 404
+
+@jwt.revoked_token_loader
+def unauthorized(header, payload):
+    return jsonify(status_code=404, response={"message": "token revoked"}), 404
+
+@jwt.token_in_blocklist_loader
+def check_if_token_in_blacklist(jwt_header, jwt_payload):
+    jti = jwt_payload['jti']
+    return len(token_blacklist) > 0 and jti in token_blacklist
 
 
 class Task(db.Model):
@@ -38,7 +44,7 @@ class Task(db.Model):
         return {column.name: getattr(self, column.name) for column in self.__table__.columns}
 
 
-class User(UserMixin, db.Model):
+class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(100), unique=True)
     password = db.Column(db.String(100))
@@ -49,7 +55,7 @@ with app.app_context():
     db.create_all()
 
 @app.route('/add-task', methods=['POST'])
-@login_required
+@jwt_required()
 def add_task():
     if request.method == 'POST':
         task_title = request.form["task"]
@@ -62,7 +68,7 @@ def add_task():
 
 
 @app.route('/task')
-@login_required
+@jwt_required()
 def get_tasks():
     tasks = db.session.execute(db.select(Task)).scalars().all()
 
@@ -74,7 +80,7 @@ def get_tasks():
 
 
 @app.route('/remove-task/<task_id>')
-@login_required
+@jwt_required()
 def delete_task(task_id):
     task = db.session.execute(db.select(Task).where(Task.id == task_id)).scalar_one_or_none()
 
@@ -89,7 +95,7 @@ def delete_task(task_id):
 
 
 @app.route('/mark-done/<task_id>', methods=['PATCH'])
-@login_required
+@jwt_required()
 def mark_task_done(task_id):
     task = db.session.execute(db.select(Task).where(Task.id == task_id)).scalar_one_or_none()
 
@@ -104,7 +110,7 @@ def mark_task_done(task_id):
 
 
 @app.route('/edit-task/<task_id>', methods=['PUT'])
-@login_required
+@jwt_required()
 def update_task(task_id):
     task = db.session.execute(db.select(Task).where(Task.id == task_id)).scalar_one_or_none()
 
@@ -150,13 +156,20 @@ def login():
     elif not check_password_hash(user.password, password):
         return jsonify(status_code=400, error={"message": "Wrong Password"}), 400
     else:
-        login_user(user)
-        return jsonify(status_code=200, response={"message": "Successfully Login"}), 200
+        # login_user(user)
+        access_token = create_access_token(identity=user.id)
+        response = {
+            "message": "Successfully Login",
+            "token": access_token
+        }
+        return jsonify(status_code=200, response=response), 200
 
 
 @app.route('/logout')
+@jwt_required()
 def logout():
-    logout_user()
+    jti = get_jwt()['jti']
+    token_blacklist.add(jti)
     return jsonify(status_code=200, response={"message": "Successfully Logout"}), 200
 
 if __name__ == "__main__":
