@@ -3,7 +3,7 @@ import os
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
-from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, JWTManager, get_jwt
+from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, JWTManager, get_jwt, current_user
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv("SECRET_KEY", "just secret")
@@ -17,6 +17,7 @@ db.init_app(app)
 
 jwt = JWTManager(app)
 
+# Override flask jwt default message with custom made
 @jwt.unauthorized_loader
 def unauthorized(callback):
     return jsonify(status_code=404, response={"message": "User is unauthorized"}), 404
@@ -25,16 +26,31 @@ def unauthorized(callback):
 def unauthorized(header, payload):
     return jsonify(status_code=404, response={"message": "token revoked"}), 404
 
+@jwt.expired_token_loader
+def expired_token(header, payload):
+    return jsonify(status_code=404, response={"message": "token expired"}), 404
+
+@jwt.user_identity_loader
+def user_identity_lookup(user_id):
+    return user_id
+
+@jwt.user_lookup_loader
+def user_lookup_callback(_jwt_header, jwt_data):
+    identity = jwt_data["sub"]
+    return db.session.execute(db.select(User).where(User.id == identity)).scalar_one_or_none()
+
 @jwt.token_in_blocklist_loader
 def check_if_token_in_blacklist(jwt_header, jwt_payload):
     jti = jwt_payload['jti']
     return len(token_blacklist) > 0 and jti in token_blacklist
 
-
 class Task(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(80), nullable=False)
     is_done = db.Column(db.Boolean, default=False)
+
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    user = db.relationship('User', back_populates='tasks')
 
     # To provide string representation used for debugging
     def __repr__(self):
@@ -45,11 +61,13 @@ class Task(db.Model):
 
 
 class User(db.Model):
+    __tablename__ = "users"
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(100), unique=True)
     password = db.Column(db.String(100))
     name = db.Column(db.String(100))
 
+    tasks = db.relationship("Task", back_populates='user')
 
 with app.app_context():
     db.create_all()
@@ -57,20 +75,18 @@ with app.app_context():
 @app.route('/add-task', methods=['POST'])
 @jwt_required()
 def add_task():
-    if request.method == 'POST':
-        task_title = request.form["task"]
-        new_task = Task(title=task_title)
-        db.session.add(new_task)
-        db.session.commit()
+    task_title = request.form["task"]
+    new_task = Task(title=task_title, user=current_user)
+    db.session.add(new_task)
+    db.session.commit()
 
-        return jsonify(status_code=200, response={"message": "Successfully Add Task"}), 200
-    return jsonify(status_code=404, response={"message": "Page Not Found"}), 400
+    return jsonify(status_code=200, response={"message": "Successfully Add Task"}), 200
 
 
 @app.route('/task')
 @jwt_required()
 def get_tasks():
-    tasks = db.session.execute(db.select(Task)).scalars().all()
+    tasks = db.session.execute(db.select(Task).where(Task.user_id == current_user.id)).scalars().all()
 
     if len(tasks) == 0:
         return jsonify(status_code=404, error={"message": "We don't find any task "}), 200
@@ -156,7 +172,6 @@ def login():
     elif not check_password_hash(user.password, password):
         return jsonify(status_code=400, error={"message": "Wrong Password"}), 400
     else:
-        # login_user(user)
         access_token = create_access_token(identity=user.id)
         response = {
             "message": "Successfully Login",
