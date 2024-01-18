@@ -88,9 +88,6 @@ def add_task():
 def get_tasks():
     tasks = db.session.execute(db.select(Task).where(Task.user_id == current_user.id)).scalars().all()
 
-    if len(tasks) == 0:
-        return jsonify(status_code=404, error={"message": "We don't find any task "}), 200
-
     response = jsonify(status_code=200, tasks=[task.as_dictionary() for task in tasks])
     return response, 200
 
