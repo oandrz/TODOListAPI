@@ -5,17 +5,17 @@ from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, JWTManager, get_jwt, current_user
 
-app = Flask(__name__)
-app.config['SECRET_KEY'] = os.getenv("SECRET_KEY", "just secret")
-app.config["JWT_SECRET_KEY"] = os.getenv("SECRET_KEY", "just secret")
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv("POSTGRE", 'sqlite:///tasks.db')
+application = Flask(__name__)
+application.config['SECRET_KEY'] = os.getenv("SECRET_KEY", "just secret")
+application.config["JWT_SECRET_KEY"] = os.getenv("SECRET_KEY", "just secret")
+application.config['SQLALCHEMY_DATABASE_URI'] = os.getenv("POSTGRE", 'sqlite:///tasks.db')
 
 token_blacklist = set()
 
 db = SQLAlchemy()
-db.init_app(app)
+db.init_app(application)
 
-jwt = JWTManager(app)
+jwt = JWTManager(application)
 
 # Override flask jwt default message with custom made
 @jwt.unauthorized_loader
@@ -69,10 +69,10 @@ class User(db.Model):
 
     tasks = db.relationship("Task", back_populates='user')
 
-with app.app_context():
+with application.app_context():
     db.create_all()
 
-@app.route('/add-task', methods=['POST'])
+@application.route('/add-task', methods=['POST'])
 @jwt_required()
 def add_task():
     task_title = request.form["task"]
@@ -83,7 +83,7 @@ def add_task():
     return jsonify(status_code=200, response={"message": "Successfully Add Task"}), 200
 
 
-@app.route('/task')
+@application.route('/task')
 @jwt_required()
 def get_tasks():
     tasks = db.session.execute(db.select(Task).where(Task.user_id == current_user.id)).scalars().all()
@@ -92,7 +92,7 @@ def get_tasks():
     return response, 200
 
 
-@app.route('/remove-task/<task_id>')
+@application.route('/remove-task/<task_id>')
 @jwt_required()
 def delete_task(task_id):
     task = db.session.execute(db.select(Task).where(Task.id == task_id)).scalar_one_or_none()
@@ -107,7 +107,7 @@ def delete_task(task_id):
     return response, 200
 
 
-@app.route('/mark-done/<task_id>', methods=['PATCH'])
+@application.route('/mark-done/<task_id>', methods=['PATCH'])
 @jwt_required()
 def mark_task_done(task_id):
     task = db.session.execute(db.select(Task).where(Task.id == task_id)).scalar_one_or_none()
@@ -122,7 +122,7 @@ def mark_task_done(task_id):
     return response, 200
 
 
-@app.route('/edit-task/<task_id>', methods=['PUT'])
+@application.route('/edit-task/<task_id>', methods=['PUT'])
 @jwt_required()
 def update_task(task_id):
     task = db.session.execute(db.select(Task).where(Task.id == task_id)).scalar_one_or_none()
@@ -136,7 +136,7 @@ def update_task(task_id):
     response = jsonify(status_code=200, response={"message": "Successfully Update Task"})
     return response, 200
 
-@app.route('/register', methods=["POST"])
+@application.route('/register', methods=["POST"])
 def register():
     name = request.form['name']
     email = request.form['email']
@@ -157,7 +157,7 @@ def register():
 
         return jsonify(status_code=200, response={"message": "Successfully Register"}), 200
 
-@app.route('/login', methods=["POST"])
+@application.route('/login', methods=["POST"])
 def login():
     email = request.form['email']
     password = request.form['password']
@@ -177,7 +177,7 @@ def login():
         return jsonify(status_code=200, response=response), 200
 
 
-@app.route('/logout')
+@application.route('/logout')
 @jwt_required()
 def logout():
     jti = get_jwt()['jti']
@@ -185,4 +185,4 @@ def logout():
     return jsonify(status_code=200, response={"message": "Successfully Logout"}), 200
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    application.run(debug=True)

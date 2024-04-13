@@ -1,14 +1,14 @@
 import unittest
 
-from main import app, db, Task
+from main import application, db, Task
 
 
 class MyFlaskAppTestCase(unittest.TestCase):
 
     def setUp(self):
-        self.ctx = app.app_context()
+        self.ctx = application.app_context()
         self.ctx.push()
-        self.client = app.test_client()
+        self.client = application.test_client()
 
     def tearDown(self):
         self.ctx.pop()
