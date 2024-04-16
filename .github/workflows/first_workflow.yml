@@ -11,8 +11,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-      - name: Create deployment package
-        run: zip -r deployment_package.zip . -x .git/\* .github/\* .gitignore .venv/\* README.md
       - name: Deploy AWS Eb Action
         id: deploy_eb
         uses: ./ # Uses an action in the root directory
