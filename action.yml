@@ -1,5 +1,12 @@
 name: 'Deploy Aws Elastic Beanstalk Action'
 description: 'A GitHub Action that takes an input and returns the square of the number'
+inputs:
+  aws_access_key:
+    description: 'AWS Access Key'
+    required: true
+  aws_secret_key:
+    description: 'AWS Secret Key'
+    required: true
 runs:
   using: 'composite'
   steps:
@@ -20,8 +27,8 @@ runs:
     - name: Deploy to Elastic Beanstalk
       uses: einaregilsson/beanstalk-deploy@v22
       with:
-        aws_access_key: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws_secret_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws_access_key: ${{ inputs.AWS_ACCESS_KEY_ID }}
+        aws_secret_key: ${{ inputs.AWS_SECRET_ACCESS_KEY }}
         application_name: 'TODO_List'
         environment_name: 'TODOList-env'
         region: 'ap-southeast-1'
