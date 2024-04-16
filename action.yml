@@ -30,4 +30,5 @@ runs:
         application_name: 'TODO_List'
         environment_name: 'TODOList-env'
         region: 'ap-southeast-1'
+        version_label: ${{ github.run_id }}
         deployment_package: 'deployment_package.zip'
