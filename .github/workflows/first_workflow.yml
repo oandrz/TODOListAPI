@@ -1,19 +1,20 @@
-name: First Workflow
-on: [push]
+name: Deploy Aws Elastic Beanstalk Action Workflow
+on:
+  push:
+    branches:
+      - master
 
 jobs:
-  get-num-square:
+  deploy-eb:
     runs-on: ubuntu-latest
-    name: Returns the number square
+    name: Deploy to AWS Elastic Beanstalk
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-      - name: Fetch num squared
-        id: get_square
-        uses: ./ # Uses an action in the root directory
+      - name: Create deployment package
+        run: zip -r deployment_package.zip . -x .git/\* .github/\* .gitignore .venv/\* README.md
+      - name: Deploy AWS Eb Action
+        id: deploy_eb
+        uses: ./ .github/actions/deploy_eb_action # Uses an action in the root directory
         # or use a released GitHub Action
         # uses: shipyard/github-action/fetch-shipyard-env@1.0.0
-        with:
-          num: 11
-      - name: Print the square
-        run: echo "${{ steps.get_square.outputs.num_squared }}"
