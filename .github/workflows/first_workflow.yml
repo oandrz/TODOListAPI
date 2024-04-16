@@ -15,6 +15,6 @@ jobs:
         run: zip -r deployment_package.zip . -x .git/\* .github/\* .gitignore .venv/\* README.md
       - name: Deploy AWS Eb Action
         id: deploy_eb
-        uses: ./.github/actions/deploy_eb_action # Uses an action in the root directory
+        uses: ./.github/actions/ # Uses an action in the root directory
         # or use a released GitHub Action
         # uses: shipyard/github-action/fetch-shipyard-env@1.0.0
