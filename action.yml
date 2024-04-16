@@ -12,8 +12,13 @@ runs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
       shell: bash
+    - name: Create deployment package
+      run: |
+        echo '${{ secrets.AWS_ACCESS_KEY_ID }}'
+        echo '${{ secrets.AWS_SECRET_ACCESS_KEY }}'
+      shell: bash
     - name: Deploy to Elastic Beanstalk
-      uses: einaregilsson/beanstalk-deploy@v14
+      uses: einaregilsson/beanstalk-deploy@v22
       with:
         aws_access_key: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws_secret_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
