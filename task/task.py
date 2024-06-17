@@ -1,7 +1,9 @@
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required, current_user
+from intelligence import gemini_ai
 
 from database import db
+
 
 class Task(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -18,12 +20,16 @@ class Task(db.Model):
     def as_dictionary(self):
         return {column.name: getattr(self, column.name) for column in self.__table__.columns}
 
+
 task_blueprint = Blueprint('task_blueprint', __name__)
+
 
 @task_blueprint.route('/add-task', methods=['POST'])
 @jwt_required()
 def add_task():
     task_title = request.form["task"]
+    if not task_title:
+        return jsonify(status_code=400, response={"message": "Task title is required"}), 400
     new_task = Task(title=task_title, user=current_user)
     db.session.add(new_task)
     db.session.commit()
@@ -34,9 +40,7 @@ def add_task():
 @task_blueprint.route('/task')
 @jwt_required()
 def get_tasks():
-    print(f"get task for the user id: {current_user.id}")
     tasks = db.session.execute(db.select(Task).where(Task.user_id == current_user.id)).scalars().all()
-
     response = jsonify(status_code=200, tasks=[task.as_dictionary() for task in tasks])
     return response, 200
 
@@ -84,3 +88,22 @@ def update_task(task_id):
 
     response = jsonify(status_code=200, response={"message": "Successfully Update Task"})
     return response, 200
+
+
+@task_blueprint.route('/generate-task', methods=['POST'])
+@jwt_required()
+def generate_task_ai():
+    query = f"query:{request.form["query"]}"
+    result, status_code = gemini_ai.request_gemini(query)
+
+    # Guard empty task list
+    if result is None and status_code == 200:
+        return jsonify(status_code=404, error={"message": "We unable to generate task from your query, please try "
+                                                          "another query"}), 404
+    # Guard if the 'error' field exists in the response
+    if 'error' in result:
+        return jsonify(status_code=404, error={"message": result['error']}), 404
+
+    response = jsonify(status_code=status_code, response=result)
+
+    return response, status_code

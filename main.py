@@ -1,5 +1,6 @@
 import os
 
+from intelligence import gemini_ai
 from flask import Flask
 from auth.authorization import jwt
 from auth.authentication import auth_blueprint
@@ -18,8 +19,6 @@ with application.app_context():
     db.create_all()
 
 jwt.init_app(application)
-
-
 
 if __name__ == "__main__":
     application.run(host="0.0.0.0", port=5000, debug=True)
